@@ -1,5 +1,6 @@
 import tjs from 'teslajs';
 import util from 'util';
+import Bottleneck from "bottleneck"
 
 export default function createTesla({ Service, Characteristic }) {
   const CurrentTemperature = Characteristic.CurrentTemperature
@@ -20,6 +21,11 @@ export default function createTesla({ Service, Characteristic }) {
       this.chargingState = Characteristic.ChargingState.NOT_CHARGEABLE
       this.batteryLevel = 0
 
+      this.limiter = new Bottleneck({
+        maxConcurrent: 2,
+        minTime: 500
+      });
+      
       this.temperatureService = new Service.Thermostat(this.name)
       this.temperatureService.getCharacteristic(Characteristic.CurrentTemperature)
         .on('get', this.getClimateState.bind(this, 'temperature'))
@@ -345,14 +351,25 @@ export default function createTesla({ Service, Characteristic }) {
       }
     }
 
-    async wakeUp() {
+    async wakeUp(vehicleID) {
       try {
         const res = await tjs.wakeUpAsync({
           authToken: this.token,
+          vehicleID,
         });
-        return res;
+        for (let i=0; i<13; i++) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          this.log('checking if tesla woken up')
+          const res2 = await tjs.vehiclesAsync({
+            authToken: this.token,
+          });
+          const state = res2.state;
+          if (state !== 'asleep') return res;
+        }
+        this.log("Error waking Tesla: " + err)
+        return Promise.reject(err);
       } catch (err) {
-        this.log("Error logging into Tesla: " + err)
+        this.log("Error waking Tesla: " + err)
         return Promise.reject(err);
       };
     }
@@ -360,14 +377,14 @@ export default function createTesla({ Service, Characteristic }) {
     async getVehicleId() {
       this.log("getting vehicle id...")
       try {
-        const res = await tjs.vehiclesAsync({
+        const res = await this.limiter.schedule(() => tjs.vehiclesAsync({
           authToken: this.token,
-        });
+        }));
         const vehicleId = res.id_s;
         const state = res.state;
         if (state == 'asleep') {
           this.log('awaking car...')
-          await this.wakeUp();
+          await this.limiter.schedule(() => this.wakeUp(res.id_s));
         }
         this.log('vehicle id is ' + vehicleId);
         return vehicleId;

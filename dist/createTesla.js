@@ -13,6 +13,10 @@ var _util = require('util');
 
 var _util2 = _interopRequireDefault(_util);
 
+var _bottleneck = require('bottleneck');
+
+var _bottleneck2 = _interopRequireDefault(_bottleneck);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function createTesla({ Service, Characteristic }) {
@@ -33,6 +37,11 @@ function createTesla({ Service, Characteristic }) {
       this.charging = false;
       this.chargingState = Characteristic.ChargingState.NOT_CHARGEABLE;
       this.batteryLevel = 0;
+
+      this.limiter = new _bottleneck2.default({
+        maxConcurrent: 2,
+        minTime: 1000
+      });
 
       this.temperatureService = new Service.Thermostat(this.name);
       this.temperatureService.getCharacteristic(Characteristic.CurrentTemperature).on('get', this.getClimateState.bind(this, 'temperature'));
@@ -337,14 +346,24 @@ function createTesla({ Service, Characteristic }) {
       }
     }
 
-    async wakeUp() {
+    async wakeUp(vehicleID) {
       try {
         const res = await _teslajs2.default.wakeUpAsync({
-          authToken: this.token
+          authToken: this.token,
+          vehicleID
         });
-        return res;
+        for (let i = 0; i < 10; i++) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const res2 = await _teslajs2.default.vehiclesAsync({
+            authToken: this.token
+          });
+          const state = res2.state;
+          if (state !== 'asleep') return res;
+        }
+        this.log("Error waking Tesla: " + err);
+        return Promise.reject(err);
       } catch (err) {
-        this.log("Error logging into Tesla: " + err);
+        this.log("Error waking Tesla: " + err);
         return Promise.reject(err);
       };
     }
@@ -352,14 +371,14 @@ function createTesla({ Service, Characteristic }) {
     async getVehicleId() {
       this.log("getting vehicle id...");
       try {
-        const res = await _teslajs2.default.vehiclesAsync({
+        const res = await this.limiter.schedule(() => _teslajs2.default.vehiclesAsync({
           authToken: this.token
-        });
+        }));
         const vehicleId = res.id_s;
         const state = res.state;
         if (state == 'asleep') {
           this.log('awaking car...');
-          await this.wakeUp();
+          await this.limiter.schedule(() => this.wakeUp(res.id_s));
         }
         this.log('vehicle id is ' + vehicleId);
         return vehicleId;
