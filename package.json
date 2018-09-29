@@ -11,7 +11,8 @@
     "start": "NODE=production node ./dist/index",
     "dev": "./node_modules/.bin/babel-watch ./src/index",
     "lint": "./node_modules/.bin/eslint src",
-    "build": "./node_modules/.bin/babel src -d dist --ignore test.js"
+    "build": "./node_modules/.bin/babel src -d dist --ignore test.js",
+    "postinstall": "./node_modules/.bin/babel src -d dist --ignore test.js"
   },
   "files": [
     "dist"
@@ -40,7 +41,5 @@
     "eslint-plugin-import": "2.2.0",
     "teslajs": "^2.1.42"
   },
-  "devDependencies": {
-    
-  }
+  "devDependencies": {}
 }
