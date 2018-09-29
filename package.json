@@ -1,5 +1,6 @@
 {
   "name": "homebridge-teslajs",
+  "version": "1.0.0",
   "description": "Tesla support for Homebridge",
   "main": "dist/index.js",
   "license": "MIT",
