@@ -39,7 +39,7 @@ function createTesla({ Service, Characteristic }) {
       this.batteryLevel = 0;
 
       this.limiter = new _bottleneck2.default({
-        maxConcurrent: 2,
+        // maxConcurrent: 2,
         minTime: 500
       });
 
@@ -86,10 +86,14 @@ function createTesla({ Service, Characteristic }) {
     async getTrunkState(which, callback) {
       this.log("Getting current trunk state...");
       try {
-        const vehicleState = await _teslajs2.default.vehicleStateAsync({
+        const vehicleState = await this.limiter.schedule(async () => _teslajs2.default.vehicleStateAsync({
           authToken: this.token,
           vehicleID: await this.getVehicleId()
-        });
+        }));
+        // const vehicleState = await tjs.vehicleStateAsync({
+        //   authToken: this.token,
+        //   vehicleID: await this.getVehicleId(),
+        // });
         const res = which === 'frunk' ? !vehicleState.ft : !vehicleState.rt;
         return callback(null, res);
       } catch (err) {
@@ -109,7 +113,8 @@ function createTesla({ Service, Characteristic }) {
           authToken: this.token,
           vehicleID: await this.getVehicleId()
         };
-        const res = await _teslajs2.default.openTrunkAsync(options, which === 'trunk' ? _teslajs2.default.TRUNK : _teslajs2.default.FRUNK);
+        const res = await this.limiter.schedule(async () => await _teslajs2.default.openTrunkAsync(options, which === 'trunk' ? _teslajs2.default.TRUNK : _teslajs2.default.FRUNK));
+        // const res = await tjs.openTrunkAsync(options,  which === 'trunk' ? tjs.TRUNK : tjs.FRUNK);
         if (res.result && !res.reason) {
           const currentState = state == LockTargetState.SECURED ? LockCurrentState.SECURED : LockCurrentState.UNSECURED;
           setTimeout(function () {
@@ -129,10 +134,14 @@ function createTesla({ Service, Characteristic }) {
     async getBatteryLevel(callback) {
       this.log("Getting current battery level...");
       try {
-        const chargingState = await _teslajs2.default.chargeStateAsync({
+        const chargingState = await this.limiter.schedule(async () => _teslajs2.default.chargeStateAsync({
           authToken: this.token,
           vehicleID: await this.getVehicleId()
-        });
+        }));
+        // const chargingState = await tjs.chargeStateAsync({
+        //   authToken: this.token,
+        //   vehicleID: await this.getVehicleId(),
+        // });
         if (chargingState && chargingState.hasOwnProperty('battery_level')) {
           this.batteryLevel = chargingState.battery_level;
         } else {
@@ -148,10 +157,14 @@ function createTesla({ Service, Characteristic }) {
     async getChargingState(what, callback) {
       this.log("Getting current charge state...");
       try {
-        const chargingState = await _teslajs2.default.chargeStateAsync({
+        const chargingState = await this.limiter.schedule(async () => _teslajs2.default.chargeStateAsync({
           authToken: this.token,
           vehicleID: await this.getVehicleId()
-        });
+        }));
+        // const chargingState = await tjs.chargeStateAsync({
+        //   authToken: this.token,
+        //   vehicleID: await this.getVehicleId(),
+        // });
         if (chargingState) {
           this.charging = chargingState.charge_rate > 0 ? true : false;
           const connected = chargingState.charge_port_latch === 'Engaged' ? true : false;
@@ -231,10 +244,14 @@ function createTesla({ Service, Characteristic }) {
     async getClimateState(what, callback) {
       this.log("Getting current climate state...");
       try {
-        const climateState = await _teslajs2.default.climateStateAsync({
+        const climateState = await this.limiter.schedule(async () => _teslajs2.default.climateStateAsync({
           authToken: this.token,
           vehicleID: await this.getVehicleId()
-        });
+        }));
+        // const climateState = await tjs.climateStateAsync({
+        //   authToken: this.token,
+        //   vehicleID: await this.getVehicleId(),
+        // });
         switch (what) {
           case 'temperature':
             return callback(null, climateState.inside_temp);
@@ -273,10 +290,10 @@ function createTesla({ Service, Characteristic }) {
     async getLockState(callback) {
       this.log("Getting current lock state...");
       try {
-        const vehicleState = await _teslajs2.default.vehicleStateAsync({
+        const vehicleState = await this.limiter.schedule(async () => _teslajs2.default.vehicleStateAsync({
           authToken: this.token,
           vehicleID: await this.getVehicleId()
-        });
+        }));
         return callback(null, vehicleState.locked);
       } catch (err) {
         callback(err);
@@ -311,10 +328,10 @@ function createTesla({ Service, Characteristic }) {
     async getChargeDoorState(callback) {
       this.log("Getting current charge door state...");
       try {
-        const chargeState = await _teslajs2.default.chargeStateAsync({
+        const chargeState = await this.limiter.schedule(async () => _teslajs2.default.chargeStateAsync({
           authToken: this.token,
           vehicleID: await this.getVehicleId()
-        });
+        }));
         return callback(null, !chargeState.charge_port_door_open);
       } catch (err) {
         callback(err);
@@ -375,11 +392,15 @@ function createTesla({ Service, Characteristic }) {
         const res = await this.limiter.schedule(() => _teslajs2.default.vehiclesAsync({
           authToken: this.token
         }));
+        // const res = await tjs.vehiclesAsync({
+        //   authToken: this.token,
+        // });
         const vehicleId = res.id_s;
         const state = res.state;
         if (state == 'asleep') {
           this.log('awaking car...');
           await this.limiter.schedule(() => this.wakeUp(res.id_s));
+          await this.wakeUp(res.id_s);
         }
         this.log('vehicle id is ' + vehicleId);
         return vehicleId;
