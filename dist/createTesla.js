@@ -40,7 +40,7 @@ function createTesla({ Service, Characteristic }) {
 
       this.limiter = new _bottleneck2.default({
         maxConcurrent: 2,
-        minTime: 1000
+        minTime: 500
       });
 
       this.temperatureService = new Service.Thermostat(this.name);
@@ -352,8 +352,9 @@ function createTesla({ Service, Characteristic }) {
           authToken: this.token,
           vehicleID
         });
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 13; i++) {
           await new Promise(resolve => setTimeout(resolve, 1000));
+          this.log('checking if tesla woken up');
           const res2 = await _teslajs2.default.vehiclesAsync({
             authToken: this.token
           });
