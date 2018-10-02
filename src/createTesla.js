@@ -87,6 +87,38 @@ export default function createTesla({ Service, Characteristic }) {
       this.chargingService.getCharacteristic(Characteristic.On)
         .on('get', this.getChargingState.bind(this, 'charging'))
         .on('set', this.setCharging.bind(this))
+      
+      this.HornService = new Service.Switch(this.name + ' Horn', 'horn')
+      this.HornService.getCharacteristic(Characteristic.On)
+        .on('get', this.getHornState.bind(this))
+        .on('set', this.setHornState.bind(this))
+    }
+
+    getHornState(callback) {
+      return callback(null, false);
+    }
+    
+
+    async setHornState(state, callback) {
+      try {
+        const options = {
+          authToken: this.token,
+          vehicleID: await this.getVehicleId(),
+        };
+        const res = await tjs.honkHornAsync(options);
+        if (res.result && !res.reason) {
+          setTimeout(function() {
+            this.HornS.setCharacteristic(Characteristic.On, false)
+          }.bind(this), 1000)
+          callback(null) // success
+        } else {
+          this.log("Error setting horn state: " + res.reason)
+          callback(new Error("Error setting horn state. " + res.reason))
+        }
+      } catch (err) {
+        this.log("Error setting horn state: " + util.inspect(arguments))
+        callback(new Error("Error setting horn state."))
+      }
     }
 
     async getTrunkState(which, callback) {
@@ -423,6 +455,7 @@ export default function createTesla({ Service, Characteristic }) {
         this.batteryLevelService,
         this.chargingService,
         this.chargeDoorService,
+        this.HornService,
       ]
     }
   }
