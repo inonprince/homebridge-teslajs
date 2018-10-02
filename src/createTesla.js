@@ -23,7 +23,7 @@ export default function createTesla({ Service, Characteristic }) {
 
       this.limiter = new Bottleneck({
         // maxConcurrent: 2,
-        minTime: 500,
+        minTime: 100,
       });
       
       this.temperatureService = new Service.Thermostat(this.name)

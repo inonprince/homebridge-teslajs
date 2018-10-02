@@ -40,7 +40,7 @@ function createTesla({ Service, Characteristic }) {
 
       this.limiter = new _bottleneck2.default({
         // maxConcurrent: 2,
-        minTime: 500
+        minTime: 100
       });
 
       this.temperatureService = new Service.Thermostat(this.name);
@@ -400,7 +400,6 @@ function createTesla({ Service, Characteristic }) {
         if (state == 'asleep') {
           this.log('awaking car...');
           await this.limiter.schedule(() => this.wakeUp(res.id_s));
-          await this.wakeUp(res.id_s);
         }
         this.log('vehicle id is ' + vehicleId);
         return vehicleId;
