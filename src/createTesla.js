@@ -108,6 +108,9 @@ export default function createTesla({ Service, Characteristic }) {
         const res = await tjs.honkHornAsync(options);
         if (res.result && !res.reason) {
           setTimeout(function() {
+            this.HornService.setCharacteristic(Characteristic.On, true)
+          }.bind(this), 1);
+          setTimeout(function() {
             this.HornService.setCharacteristic(Characteristic.On, false)
           }.bind(this), 1000)
           callback(null) // success
