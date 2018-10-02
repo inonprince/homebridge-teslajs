@@ -84,6 +84,9 @@ function createTesla({ Service, Characteristic }) {
 
       this.HornService = new Service.Switch(this.name + ' Horn', 'horn');
       this.HornService.getCharacteristic(Characteristic.On).on('get', this.getHornState.bind(this)).on('set', this.setHornState.bind(this));
+
+      this.LightsService = new Service.Switch(this.name + ' Lights', 'lights');
+      this.LightsService.getCharacteristic(Characteristic.On).on('get', this.getLightsState.bind(this)).on('set', this.setLightsState.bind(this));
     }
 
     getHornState(callback) {
@@ -106,6 +109,29 @@ function createTesla({ Service, Characteristic }) {
       } catch (err) {
         this.log("Error setting horn state: " + _util2.default.inspect(arguments));
         callback(new Error("Error setting horn state."));
+      }
+    }
+
+    getLightsState(callback) {
+      return callback(null, false);
+    }
+
+    async setLightsState(state, callback) {
+      try {
+        const options = {
+          authToken: this.token,
+          vehicleID: await this.getVehicleId()
+        };
+        const res = await _teslajs2.default.flashLightsAsync(options);
+        if (res.result && !res.reason) {
+          callback(null); // success
+        } else {
+          this.log("Error setting lights state: " + res.reason);
+          callback(new Error("Error setting lights state. " + res.reason));
+        }
+      } catch (err) {
+        this.log("Error setting lights state: " + _util2.default.inspect(arguments));
+        callback(new Error("Error setting lights state."));
       }
     }
 
@@ -436,7 +462,7 @@ function createTesla({ Service, Characteristic }) {
     }
 
     getServices() {
-      return [this.temperatureService, this.lockService, this.trunkService, this.frunkService, this.batteryLevelService, this.chargingService, this.chargeDoorService, this.HornService];
+      return [this.temperatureService, this.lockService, this.trunkService, this.frunkService, this.batteryLevelService, this.chargingService, this.chargeDoorService, this.HornService, this.LightsService];
     }
   };
 }
