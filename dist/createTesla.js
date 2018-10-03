@@ -110,7 +110,7 @@ function createTesla({ Service, Characteristic }) {
           if (on) {
             this.conditioningTimer = setTimeout(async () => {
               setTimeout(function () {
-                this.ConditioningService.setCharacteristic(Characteristic.On, false);
+                this.ConditioningService.getCharacteristic(Characteristic.On).updateValue(false);
               }.bind(this), 300);
               const driveStateRes = await _teslajs2.default.driveStateAsync(options);
               const shiftState = driveStateRes.shift_state || "Parked";
