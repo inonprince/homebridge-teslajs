@@ -159,6 +159,9 @@ export default function createTesla({ Service, Characteristic }) {
         const res = await tjs.honkHornAsync(options);
         if (res.result && !res.reason) {
           callback(null) // success
+          setTimeout(function() {
+            this.HornService.getCharacteristic(Characteristic.On).updateValue(false);
+          }.bind(this), 1000);
         } else {
           this.log("Error setting horn state: " + res.reason)
           callback(new Error("Error setting horn state. " + res.reason))
@@ -182,6 +185,9 @@ export default function createTesla({ Service, Characteristic }) {
         const res = await tjs.flashLightsAsync(options);
         if (res.result && !res.reason) {
           callback(null) // success
+          setTimeout(function() {
+            this.LightsService.getCharacteristic(Characteristic.On).updateValue(false);
+          }.bind(this), 1000);
         } else {
           this.log("Error setting lights state: " + res.reason)
           callback(new Error("Error setting lights state. " + res.reason))
