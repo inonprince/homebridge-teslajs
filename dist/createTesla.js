@@ -174,7 +174,7 @@ function createTesla({ Service, Characteristic }) {
           callback(null); // success
           setTimeout(function () {
             this.LightsService.getCharacteristic(Characteristic.On).updateValue(false);
-          }.bind(this), 1000);
+          }.bind(this), 10 * 60 * 1000);
         } else {
           this.log("Error setting lights state: " + res.reason);
           callback(new Error("Error setting lights state. " + res.reason));
