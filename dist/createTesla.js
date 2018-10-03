@@ -114,7 +114,7 @@ function createTesla({ Service, Characteristic }) {
               }.bind(this), 300);
               const driveStateRes = await _teslajs2.default.driveStateAsync(options);
               const shiftState = driveStateRes.shift_state || "Parked";
-              if (shiftState === "delme") {
+              if (shiftState === "Parked") {
                 const climateStopRes = await _teslajs2.default.climateStopAsync(options);
               }
             }, 20000);
