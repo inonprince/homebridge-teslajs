@@ -10,6 +10,7 @@ export default function createTesla({ Service, Characteristic }) {
 
   return class Tesla {
     constructor(log, config) {
+      this.conditioningTimer = null
       this.log = log
       this.name = config.name
       this.token = config.token
@@ -45,6 +46,11 @@ export default function createTesla({ Service, Characteristic }) {
           callback(null, Characteristic.TemperatureDisplayUnits.FAHRENHEIT)
         })
 
+      this.ConditioningService = new Service.Switch(this.name + ' Conditioning', 'conditioning')
+      this.ConditioningService.getCharacteristic(Characteristic.On)
+        .on('get', this.getConditioningState.bind(this))
+        .on('set', this.setConditioningState.bind(this))
+        
       this.lockService = new Service.LockMechanism(this.name, 'doorlocks')
       this.lockService.getCharacteristic(LockCurrentState)
         .on('get', this.getLockState.bind(this))
@@ -99,10 +105,50 @@ export default function createTesla({ Service, Characteristic }) {
         .on('set', this.setLightsState.bind(this))
     }
 
+
+    getConditioningState(callback) {
+      return callback(null, !!this.conditioningTimer);
+    }
+
+    async setConditioningState(on, callback) {
+      this.log('Setting conditioning to on = ' + on)
+      try {
+        const options = {
+          authToken: this.token,
+          vehicleID: await this.getVehicleId(),
+        };
+
+        const res = on ? await tjs.climateStartAsync(options) : await tjs.climateStopAsync(options);
+        if (res.result && !res.reason) {
+          if (on) {
+            this.conditioningTimer = setTimeout(async () => {
+              setTimeout(function() {
+                this.ConditioningService.setCharacteristic(Characteristic.On, false);
+              }.bind(this), 300);
+              const driveStateRes = await tjs.driveStateAsync(options);
+              const shiftState = driveStateRes.shift_state || "Parked";
+              if (shiftState === "Parked") {
+                climateStopRes = await tjs.climateStopAsync(options);
+              }
+            }, 10000);
+          } else {
+            clearTimeout(this.conditioningTimer);
+            this.conditioningTimer = null;
+          }
+          callback(null) // success
+        } else {
+          this.log("Error setting climate state: " + res.reason)
+          callback(new Error("Error setting climate state. " + res.reason))
+        }
+      } catch (err) {
+        this.log("Error setting charging state: " + util.inspect(arguments))
+        callback(new Error("Error setting charging state."))
+      }
+    }
+
     getHornState(callback) {
       return callback(null, false);
     }
-    
 
     async setHornState(state, callback) {
       try {
@@ -455,9 +501,6 @@ export default function createTesla({ Service, Characteristic }) {
         const res = await this.limiter.schedule(() => tjs.vehiclesAsync({
           authToken: this.token,
         }));
-        // const res = await tjs.vehiclesAsync({
-        //   authToken: this.token,
-        // });
         const vehicleId = res.id_s;
         const state = res.state;
         if (state == 'asleep') {
@@ -483,6 +526,7 @@ export default function createTesla({ Service, Characteristic }) {
         this.chargeDoorService,
         this.HornService,
         this.LightsService,
+        this.ConditioningService,
       ]
     }
   }
