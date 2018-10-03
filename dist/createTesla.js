@@ -115,9 +115,9 @@ function createTesla({ Service, Characteristic }) {
               const driveStateRes = await _teslajs2.default.driveStateAsync(options);
               const shiftState = driveStateRes.shift_state || "Parked";
               if (shiftState === "Parked") {
-                climateStopRes = await _teslajs2.default.climateStopAsync(options);
+                const climateStopRes = await _teslajs2.default.climateStopAsync(options);
               }
-            }, 10000);
+            }, 20000);
           } else {
             clearTimeout(this.conditioningTimer);
             this.conditioningTimer = null;
