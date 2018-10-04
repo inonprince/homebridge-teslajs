@@ -117,7 +117,7 @@ function createTesla({ Service, Characteristic }) {
               if (shiftState === "Parked") {
                 const climateStopRes = await _teslajs2.default.climateStopAsync(options);
               }
-            }, 20000);
+            }, 10 * 60 * 1000);
           } else {
             clearTimeout(this.conditioningTimer);
             this.conditioningTimer = null;
@@ -174,7 +174,7 @@ function createTesla({ Service, Characteristic }) {
           callback(null); // success
           setTimeout(function () {
             this.LightsService.getCharacteristic(Characteristic.On).updateValue(false);
-          }.bind(this), 10 * 60 * 1000);
+          }.bind(this), 1000);
         } else {
           this.log("Error setting lights state: " + res.reason);
           callback(new Error("Error setting lights state. " + res.reason));
