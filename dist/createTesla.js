@@ -38,7 +38,9 @@ function createTesla({ Service, Characteristic }) {
       this.charging = false;
       this.chargingState = Characteristic.ChargingState.NOT_CHARGEABLE;
       this.batteryLevel = 0;
-      this.lastWakeup = 0;
+      this.lastWakeupTS = 0;
+      this.lastVehicleId = 0;
+      this.lastVehicleIdTS = 0;
 
       this.limiter = new _bottleneck2.default({
         // maxConcurrent: 2,
@@ -480,8 +482,8 @@ function createTesla({ Service, Characteristic }) {
 
     async wakeUp(vehicleID) {
       try {
-        if (this.lastWakeup + 5000 < Date.now()) {
-          this.lastWakeup = Date.now();
+        if (this.lastWakeupTS + 5000 < Date.now()) {
+          this.lastWakeupTS = Date.now();
           const res = await _teslajs2.default.wakeUpAsync({
             authToken: this.token,
             vehicleID
@@ -506,6 +508,9 @@ function createTesla({ Service, Characteristic }) {
     }
 
     async getVehicleId() {
+      if (this.lastVehicleId && this.lastVehicleIdTS + 5000 > Date.now()) {
+        return this.lastVehicleId;
+      }
       this.log("getting vehicle id...");
       try {
         const res = await this.limiter.schedule(() => _teslajs2.default.vehiclesAsync({
@@ -517,7 +522,9 @@ function createTesla({ Service, Characteristic }) {
           this.log('awaking car...');
           await this.limiter.schedule(() => this.wakeUp(res.id_s));
         }
-        return vehicleId;
+        this.lastVehicleIdTS = Date.now();
+        this.lastVehicleId = vehicleId;
+        return this.lastVehicleId;
       } catch (err) {
         this.log("Error logging into Tesla: " + err);
         return Promise.reject(err);
