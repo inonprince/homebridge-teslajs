@@ -369,7 +369,7 @@ function createTesla({ Service, Characteristic }) {
             ret = climateState.is_auto_conditioning_on ? Characteristic.TargetHeatingCoolingState.AUTO : Characteristic.TargetHeatingCoolingState.OFF;
             break;
         }
-        this.log(`climate: ${which} state is ${ret}`);
+        this.log(`climate: ${what} state is ${ret}`);
         return callback(null, ret);
       } catch (err) {
         this.log(err);
