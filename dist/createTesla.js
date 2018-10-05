@@ -38,6 +38,7 @@ function createTesla({ Service, Characteristic }) {
       this.charging = false;
       this.chargingState = Characteristic.ChargingState.NOT_CHARGEABLE;
       this.batteryLevel = 0;
+      this.lastWakeup = 0;
 
       this.limiter = new _bottleneck2.default({
         // maxConcurrent: 2,
@@ -117,6 +118,7 @@ function createTesla({ Service, Characteristic }) {
               if (shiftState === "Parked") {
                 const climateStopRes = await _teslajs2.default.climateStopAsync(options);
               }
+              this.conditioningTimer = null;
             }, 10 * 60 * 1000);
           } else {
             clearTimeout(this.conditioningTimer);
@@ -478,10 +480,14 @@ function createTesla({ Service, Characteristic }) {
 
     async wakeUp(vehicleID) {
       try {
-        const res = await _teslajs2.default.wakeUpAsync({
-          authToken: this.token,
-          vehicleID
-        });
+        if (this.lastWakeup + 5000 < Date.now()) {
+          this.lastWakeup = Date.now();
+          const res = await _teslajs2.default.wakeUpAsync({
+            authToken: this.token,
+            vehicleID
+          });
+        }
+
         for (let i = 0; i < 13; i++) {
           await new Promise(resolve => setTimeout(resolve, 1000));
           this.log('checking if tesla woken up');
@@ -489,7 +495,7 @@ function createTesla({ Service, Characteristic }) {
             authToken: this.token
           });
           const state = res2.state;
-          if (state !== 'asleep') return res;
+          if (state !== 'asleep') return Promise.resolve();
         }
         this.log("Error waking Tesla: " + err);
         return Promise.reject(err);
