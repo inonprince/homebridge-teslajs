@@ -211,6 +211,7 @@ export default function createTesla({ Service, Characteristic }) {
         //   vehicleID: await this.getVehicleId(),
         // });
         const res = which === 'frunk' ? !vehicleState.ft : !vehicleState.rt;
+        this.log(`${which} state is ${res}`);
         return callback(null, res);
       } catch (err) {
         callback(err)
@@ -265,6 +266,7 @@ export default function createTesla({ Service, Characteristic }) {
           this.log('Error getting battery level: ' + util.inspect(arguments))
           return callback(new Error('Error getting battery level.'))
         }
+        this.log(`battery level is ${this.batteryLevel}`);
         return callback(null, this.batteryLevel)
       } catch (err) {
         callback(err)
@@ -296,6 +298,7 @@ export default function createTesla({ Service, Characteristic }) {
           this.log('Error getting charging state: ' + util.inspect(arguments))
           return callback(new Error('Error getting charging state.'))
         }
+        this.log(`charging: ${what} is ${what === 'state' ? this.chargingState : this.charging}`);
         switch (what) {
           case 'state': return callback(null, this.chargingState)
           case 'charging': return callback(null, this.charging)
@@ -368,11 +371,20 @@ export default function createTesla({ Service, Characteristic }) {
         //   authToken: this.token,
         //   vehicleID: await this.getVehicleId(),
         // });
+        let ret;
         switch (what) {
-          case 'temperature': return callback(null, climateState.inside_temp)
-          case 'setting': return callback(null, climateState.driver_temp_setting)
-          case 'state': return callback(null, climateState.is_auto_conditioning_on ? Characteristic.TargetHeatingCoolingState.AUTO : Characteristic.TargetHeatingCoolingState.OFF)
+          case 'temperature':
+            ret = climateState.inside_temp;
+            break;
+          case 'setting':
+            ret = climateState.driver_temp_setting;
+            break;
+          case 'state':
+            ret = climateState.is_auto_conditioning_on ? Characteristic.TargetHeatingCoolingState.AUTO : Characteristic.TargetHeatingCoolingState.OFF;
+            break;
         }
+        this.log(`climate: ${which} state is ${ret}`);
+        return callback(null, ret)
       } catch (err) {
         this.log(err)
         callback(err)
@@ -407,6 +419,7 @@ export default function createTesla({ Service, Characteristic }) {
           authToken: this.token,
           vehicleID: await this.getVehicleId(),
         }));
+        this.log(`lock state is ${vehicleState.locked}`);
         return callback(null, vehicleState.locked)
       } catch (err) {
         callback(err)
@@ -446,6 +459,7 @@ export default function createTesla({ Service, Characteristic }) {
           authToken: this.token,
           vehicleID: await this.getVehicleId(),
         }));
+        this.log(`charge door state is ${!chargeState.charge_port_door_open}`);
         return callback(null, !chargeState.charge_port_door_open)
       } catch (err) {
         callback(err)
@@ -513,7 +527,6 @@ export default function createTesla({ Service, Characteristic }) {
           this.log('awaking car...')
           await this.limiter.schedule(() => this.wakeUp(res.id_s));
         }
-        this.log('vehicle id is ' + vehicleId);
         return vehicleId;
       } catch (err) {
         this.log("Error logging into Tesla: " + err)
