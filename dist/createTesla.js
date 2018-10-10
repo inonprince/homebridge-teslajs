@@ -41,6 +41,8 @@ function createTesla({ Service, Characteristic }) {
       this.lastWakeupTS = 0;
       this.lastVehicleId = 0;
       this.lastVehicleIdTS = 0;
+      this.vehicleData = null;
+      this.getPromise = null;
 
       this.limiter = new _bottleneck2.default({
         // maxConcurrent: 2,
@@ -192,14 +194,8 @@ function createTesla({ Service, Characteristic }) {
     async getTrunkState(which, callback) {
       this.log("Getting current trunk state...");
       try {
-        const vehicleState = await this.limiter.schedule(async () => _teslajs2.default.vehicleStateAsync({
-          authToken: this.token,
-          vehicleID: await this.getVehicleId()
-        }));
-        // const vehicleState = await tjs.vehicleStateAsync({
-        //   authToken: this.token,
-        //   vehicleID: await this.getVehicleId(),
-        // });
+        await this.getCarDataPromise();
+        const vehicleState = this.vehicleData.vehicle_state;
         const res = which === 'frunk' ? !vehicleState.ft : !vehicleState.rt;
         this.log(`${which} state is ${res}`);
         return callback(null, res);
@@ -241,14 +237,8 @@ function createTesla({ Service, Characteristic }) {
     async getBatteryLevel(callback) {
       this.log("Getting current battery level...");
       try {
-        const chargingState = await this.limiter.schedule(async () => _teslajs2.default.chargeStateAsync({
-          authToken: this.token,
-          vehicleID: await this.getVehicleId()
-        }));
-        // const chargingState = await tjs.chargeStateAsync({
-        //   authToken: this.token,
-        //   vehicleID: await this.getVehicleId(),
-        // });
+        await this.getCarDataPromise();
+        const chargingState = this.vehicleData.charge_state;
         if (chargingState && chargingState.hasOwnProperty('battery_level')) {
           this.batteryLevel = chargingState.battery_level;
         } else {
@@ -265,14 +255,8 @@ function createTesla({ Service, Characteristic }) {
     async getChargingState(what, callback) {
       this.log("Getting current charge state...");
       try {
-        const chargingState = await this.limiter.schedule(async () => _teslajs2.default.chargeStateAsync({
-          authToken: this.token,
-          vehicleID: await this.getVehicleId()
-        }));
-        // const chargingState = await tjs.chargeStateAsync({
-        //   authToken: this.token,
-        //   vehicleID: await this.getVehicleId(),
-        // });
+        await this.getCarDataPromise();
+        const chargingState = this.vehicleData.charge_state;
         if (chargingState) {
           this.charging = chargingState.charge_rate > 0 ? true : false;
           const connected = chargingState.charge_port_latch === 'Engaged' ? true : false;
@@ -353,14 +337,8 @@ function createTesla({ Service, Characteristic }) {
     async getClimateState(what, callback) {
       this.log("Getting current climate state...");
       try {
-        const climateState = await this.limiter.schedule(async () => _teslajs2.default.climateStateAsync({
-          authToken: this.token,
-          vehicleID: await this.getVehicleId()
-        }));
-        // const climateState = await tjs.climateStateAsync({
-        //   authToken: this.token,
-        //   vehicleID: await this.getVehicleId(),
-        // });
+        await this.getCarDataPromise();
+        const climateState = this.vehicleData.climate_state;
         let ret;
         switch (what) {
           case 'temperature':
@@ -376,7 +354,6 @@ function createTesla({ Service, Characteristic }) {
         this.log(`climate: ${what} state is ${ret}`);
         return callback(null, ret);
       } catch (err) {
-        this.log(err);
         callback(err);
       }
     }
@@ -405,12 +382,8 @@ function createTesla({ Service, Characteristic }) {
     async getLockState(callback) {
       this.log("Getting current lock state...");
       try {
-        const vehicleState = await this.limiter.schedule(async () => _teslajs2.default.vehicleStateAsync({
-          authToken: this.token,
-          vehicleID: await this.getVehicleId()
-        }));
-        this.log(`lock state is ${vehicleState.locked}`);
-        return callback(null, vehicleState.locked);
+        await this.getCarDataPromise();
+        return callback(null, this.vehicleData.vehicle_state.locked);
       } catch (err) {
         callback(err);
       }
@@ -441,15 +414,45 @@ function createTesla({ Service, Characteristic }) {
       }
     }
 
+    getCarDataPromise() {
+      if (!this.isRunning) {
+        this.getPromise = this.getCarData();
+      }
+      return this.getPromise;
+    }
+
+    getCarData() {
+      return new Promise(async (resolve, reject) => {
+        try {
+          this.isRunning = true;
+          const options = {
+            authToken: this.token,
+            vehicleID: await this.getVehicleId()
+          };
+          this.log('querying tesla for vehicle data...');
+          const res = await _teslajs2.default.vehicleDataAsync(options);
+          if (res.vehicle_id && !res.reason) {
+            this.vehicleData = res;
+            this.isRunning = false;
+            resolve(res);
+          } else {
+            this.log('error', res);
+            this.isRunning = false;
+            reject(res);
+          }
+        } catch (err) {
+          this.log('error', err);
+          this.isRunning = false;
+          reject(err);
+        }
+      });
+    }
+
     async getChargeDoorState(callback) {
       this.log("Getting current charge door state...");
       try {
-        const chargeState = await this.limiter.schedule(async () => _teslajs2.default.chargeStateAsync({
-          authToken: this.token,
-          vehicleID: await this.getVehicleId()
-        }));
-        this.log(`charge door state is ${!chargeState.charge_port_door_open}`);
-        return callback(null, !chargeState.charge_port_door_open);
+        await this.getCarDataPromise();
+        return callback(null, !this.vehicleData.charge_state.charge_port_door_open);
       } catch (err) {
         callback(err);
       }
@@ -508,10 +511,10 @@ function createTesla({ Service, Characteristic }) {
     }
 
     async getVehicleId() {
-      if (this.lastVehicleId && this.lastVehicleIdTS + 5000 > Date.now()) {
+      if (this.lastVehicleId && this.lastVehicleIdTS + 10000 > Date.now()) {
         return this.lastVehicleId;
       }
-      this.log("getting vehicle id...");
+      this.log("querying tesla vehicle id and state...");
       try {
         const res = await this.limiter.schedule(() => _teslajs2.default.vehiclesAsync({
           authToken: this.token
