@@ -1,6 +1,5 @@
 import tjs from 'teslajs';
 import util from 'util';
-import Bottleneck from "bottleneck"
 
 export default function createTesla({ Service, Characteristic }) {
   const CurrentTemperature = Characteristic.CurrentTemperature
@@ -26,11 +25,6 @@ export default function createTesla({ Service, Characteristic }) {
       this.lastVehicleIdTS = 0
       this.vehicleData = null
       this.getPromise = null
-
-      this.limiter = new Bottleneck({
-        // maxConcurrent: 2,
-        minTime: 100,
-      });
 
       this.temperatureService = new Service.Thermostat(this.name)
       this.temperatureService.getCharacteristic(Characteristic.CurrentTemperature)
@@ -229,8 +223,7 @@ export default function createTesla({ Service, Characteristic }) {
           authToken: this.token,
           vehicleID: await this.getVehicleId(),
         };
-        const res = await this.limiter.schedule(async () => await tjs.openTrunkAsync(options,  which === 'trunk' ? tjs.TRUNK : tjs.FRUNK));
-        // const res = await tjs.openTrunkAsync(options,  which === 'trunk' ? tjs.TRUNK : tjs.FRUNK);
+        const res = await tjs.openTrunkAsync(options,  which === 'trunk' ? tjs.TRUNK : tjs.FRUNK);
         if (res.result && !res.reason) {
           const currentState = (state == LockTargetState.SECURED) ?
           LockCurrentState.SECURED : LockCurrentState.UNSECURED
@@ -530,14 +523,14 @@ export default function createTesla({ Service, Characteristic }) {
       }
       this.log("querying tesla vehicle id and state...")
       try {
-        const res = await this.limiter.schedule(() => tjs.vehiclesAsync({
+        const res = await tjs.vehiclesAsync({
           authToken: this.token,
-        }));
+        });
         const vehicleId = res.id_s;
         const state = res.state;
         if (state == 'asleep') {
           this.log('awaking car...')
-          await this.limiter.schedule(() => this.wakeUp(res.id_s));
+          await this.wakeUp(res.id_s);
         }
         this.lastVehicleIdTS = Date.now();
         this.lastVehicleId = vehicleId;
