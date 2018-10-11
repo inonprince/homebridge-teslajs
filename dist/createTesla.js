@@ -13,10 +13,6 @@ var _util = require('util');
 
 var _util2 = _interopRequireDefault(_util);
 
-var _bottleneck = require('bottleneck');
-
-var _bottleneck2 = _interopRequireDefault(_bottleneck);
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function createTesla({ Service, Characteristic }) {
@@ -43,11 +39,6 @@ function createTesla({ Service, Characteristic }) {
       this.lastVehicleIdTS = 0;
       this.vehicleData = null;
       this.getPromise = null;
-
-      this.limiter = new _bottleneck2.default({
-        // maxConcurrent: 2,
-        minTime: 100
-      });
 
       this.temperatureService = new Service.Thermostat(this.name);
       this.temperatureService.getCharacteristic(Characteristic.CurrentTemperature).on('get', this.getClimateState.bind(this, 'temperature'));
@@ -216,8 +207,13 @@ function createTesla({ Service, Characteristic }) {
           authToken: this.token,
           vehicleID: await this.getVehicleId()
         };
-        const res = await this.limiter.schedule(async () => await _teslajs2.default.openTrunkAsync(options, which === 'trunk' ? _teslajs2.default.TRUNK : _teslajs2.default.FRUNK));
-        // const res = await tjs.openTrunkAsync(options,  which === 'trunk' ? tjs.TRUNK : tjs.FRUNK);
+        const driveStateRes = await _teslajs2.default.driveStateAsync(options);
+        const shiftState = driveStateRes.shift_state || "Parked";
+        if (shiftState !== "Parked") {
+          this.log("cannot operate trunks while car is not parked");
+          callback(new Error("cannot operate trunks while car is not parked"));
+        }
+        const res = await _teslajs2.default.openTrunkAsync(options, which === 'trunk' ? _teslajs2.default.TRUNK : _teslajs2.default.FRUNK);
         if (res.result && !res.reason) {
           const currentState = state == LockTargetState.SECURED ? LockCurrentState.SECURED : LockCurrentState.UNSECURED;
           setTimeout(function () {
@@ -383,6 +379,7 @@ function createTesla({ Service, Characteristic }) {
       this.log("Getting current lock state...");
       try {
         await this.getCarDataPromise();
+
         return callback(null, this.vehicleData.vehicle_state.locked);
       } catch (err) {
         callback(err);
@@ -516,14 +513,14 @@ function createTesla({ Service, Characteristic }) {
       }
       this.log("querying tesla vehicle id and state...");
       try {
-        const res = await this.limiter.schedule(() => _teslajs2.default.vehiclesAsync({
+        const res = await _teslajs2.default.vehiclesAsync({
           authToken: this.token
-        }));
+        });
         const vehicleId = res.id_s;
         const state = res.state;
         if (state == 'asleep') {
           this.log('awaking car...');
-          await this.limiter.schedule(() => this.wakeUp(res.id_s));
+          await this.wakeUp(res.id_s);
         }
         this.lastVehicleIdTS = Date.now();
         this.lastVehicleId = vehicleId;

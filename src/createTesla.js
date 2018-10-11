@@ -223,6 +223,12 @@ export default function createTesla({ Service, Characteristic }) {
           authToken: this.token,
           vehicleID: await this.getVehicleId(),
         };
+        const driveStateRes = await tjs.driveStateAsync(options);
+        const shiftState = driveStateRes.shift_state || "Parked";
+        if (shiftState !== "Parked") {
+          this.log("cannot operate trunks while car is not parked");
+          callback(new Error("cannot operate trunks while car is not parked"));
+        }
         const res = await tjs.openTrunkAsync(options,  which === 'trunk' ? tjs.TRUNK : tjs.FRUNK);
         if (res.result && !res.reason) {
           const currentState = (state == LockTargetState.SECURED) ?
@@ -388,6 +394,7 @@ export default function createTesla({ Service, Characteristic }) {
       this.log("Getting current lock state...")
       try {
         await this.getCarDataPromise()
+
         return callback(null, this.vehicleData.vehicle_state.locked)
       } catch (err) {
         callback(err)
