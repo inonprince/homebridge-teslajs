@@ -535,7 +535,7 @@ export default function createTesla({ Service, Characteristic }) {
         });
         const vehicleId = res.id_s;
         const state = res.state;
-        if (state == 'asleep') {
+        if (state !== 'online') {
           this.log('awaking car...')
           await this.wakeUp(res.id_s);
         }
